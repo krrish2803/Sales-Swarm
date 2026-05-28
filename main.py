@@ -14,7 +14,7 @@ from models import SwarmRequest, create_initial_state, ensure_complete_state
 
 load_dotenv()
 
-REQUEST_TIMEOUT = 55
+REQUEST_TIMEOUT = 58
 
 app = FastAPI(
     title="SalesSwarm API",
@@ -55,7 +55,7 @@ async def run_swarm(request: SwarmRequest):
         result = ensure_complete_state(result)
     except asyncio.TimeoutError:
         result = ensure_complete_state(initial_state)
-        result["errors"].append("Graph timed out after 120 seconds.")
+        result["errors"].append(f"Graph timed out after {REQUEST_TIMEOUT} seconds.")
         result["qualified"] = False
         result["qualification_reason"] = "Request timed out. Try a different URL or a smaller model."
         result["next_action"] = "retry"
