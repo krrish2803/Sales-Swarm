@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SalesSwarm - AI Sales Co-pilot for MVP Founders</title>
+  <meta name="description" content="SalesSwarm researches leads, scores fit, finds hooks, and writes personalized outreach in 30 seconds." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { inter: ["Inter", "sans-serif"] },
+          colors: {
+            swarm: {
+              black: "#0a0a0a",
+              panel: "#111111",
+              border: "#1f1f1f",
+              orange: "#f97316"
+            }
+          },
+          boxShadow: {
+            orange: "0 0 35px rgba(249, 115, 22, 0.22)",
+            "orange-sm": "0 0 22px rgba(249, 115, 22, 0.16)"
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Inter", sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(249, 115, 22, 0.16), transparent 30%),
+        radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.07), transparent 26%),
+        radial-gradient(circle at 50% 85%, rgba(249, 115, 22, 0.10), transparent 34%);
+      opacity: 0.78;
+      z-index: -2;
+    }
+    .grid-noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: linear-gradient(to bottom, black 0%, transparent 82%);
+      z-index: -1;
+    }
+    .nav-scrolled {
+      background: rgba(10, 10, 10, 0.82);
+      border-bottom-color: rgba(249, 115, 22, 0.72);
+      box-shadow: 0 12px 45px rgba(0, 0, 0, 0.38);
+    }
+    .section-reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 700ms ease, transform 700ms ease;
+    }
+    .section-reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .premium-card {
+      transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
+    }
+    .premium-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(249, 115, 22, 0.55);
+      box-shadow: 0 18px 42px rgba(249, 115, 22, 0.13);
+      background: #141414;
+    }
+    .glow-button {
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+    .glow-button:hover {
+      transform: translateY(-1px) scale(1.025);
+      box-shadow: 0 0 30px rgba(249, 115, 22, 0.42);
+    }
+    #swarmCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.58;
+      pointer-events: none;
+    }
+    .typing::after {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 1em;
+      margin-left: 4px;
+      background: #f97316;
+      transform: translateY(2px);
+      animation: blink 800ms steps(2, start) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .timeline-line {
+      background-image: linear-gradient(90deg, rgba(249,115,22,.7) 45%, transparent 45%);
+      background-size: 18px 2px;
+      background-repeat: repeat-x;
+    }
+    @media (max-width: 767px) {
+      .timeline-line {
+        background-image: linear-gradient(rgba(249,115,22,.7) 45%, transparent 45%);
+        background-size: 2px 18px;
+        background-repeat: repeat-y;
+      }
+    }
+  </style>
+</head>
+<body class="bg-swarm-black text-white antialiased">
+  <div class="grid-noise"></div>
+
+  <nav id="navbar" class="fixed top-0 z-50 w-full border-b border-transparent backdrop-blur-xl transition-all duration-300">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-6 lg:px-8">
+      <a href="#hero" class="text-lg font-black tracking-tight text-white sm:text-xl">SalesSwarm 🐝</a>
+      <p class="max-w-[170px] text-right text-xs font-medium leading-snug text-zinc-400 sm:max-w-none sm:text-sm">Built at OpenAI x Outskill Hackathon</p>
+    </div>
+  </nav>
+
+  <main>
+    <section id="hero" class="relative isolate min-h-screen overflow-hidden pt-28">
+      <canvas id="swarmCanvas"></canvas>
+      <div class="absolute inset-x-0 top-24 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent"></div>
+      <div class="relative z-10 mx-auto flex min-h-[calc(100vh-7rem)] max-w-7xl items-center px-5 pb-20 sm:px-6 lg:px-8">
+        <div class="max-w-5xl">
+          <div class="mb-6 inline-flex items-center gap-2 border border-orange-500/25 bg-orange-500/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-orange-400">
+            AI sales co-pilot for MVP founders
+          </div>
+          <h1 class="max-w-5xl text-5xl font-black leading-[0.93] tracking-normal text-white sm:text-7xl lg:text-8xl">
+            Your First 10 Customers Are One URL Away
+          </h1>
+          <p class="mt-7 max-w-3xl text-lg font-medium leading-8 text-zinc-300 sm:text-xl">
+            SalesSwarm researches any company, finds their pain points, and writes you a hyper-personalized outreach message - in 30 seconds. Built for MVP-stage founders who hate cold outreach.
+          </p>
+          <div class="mt-9 flex flex-col gap-4 sm:flex-row">
+            <a href="#demo" class="glow-button inline-flex items-center justify-center bg-orange-500 px-7 py-4 text-base font-black text-white shadow-orange-sm">
+              Try SalesSwarm Free →
+            </a>
+            <a href="#how-it-works" class="glow-button inline-flex items-center justify-center border border-white/55 px-7 py-4 text-base font-black text-white hover:border-orange-400 hover:text-orange-300">
+              See How It Works
+            </a>
+          </div>
+          <p class="mt-7 text-sm font-semibold text-zinc-400 sm:text-base">🐝 Join 500+ MVP-stage founders closing faster with AI</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="problem" class="section-reveal border-t border-swarm-border py-24 sm:py-28">
+      <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+        <p class="text-sm font-black uppercase tracking-[0.24em] text-orange-500">The Problem</p>
+        <h2 class="mt-4 max-w-4xl text-4xl font-black tracking-normal text-white sm:text-6xl">You built the product. Now comes the part nobody taught you.</h2>
+        <div class="mt-12 grid gap-5 md:grid-cols-3">
+          <article class="premium-card border border-swarm-border border-l-orange-500 bg-swarm-panel p-7">
+            <div class="text-4xl">⏰</div>
+            <h3 class="mt-6 text-xl font-black text-white">No time to research</h3>
+            <p class="mt-3 leading-7 text-zinc-400">You spend 30 mins Googling one lead. Multiply that by 50 prospects. That's your entire week gone.</p>
+          </article>
+          <article class="premium-card border border-swarm-border border-l-orange-500 bg-swarm-panel p-7">
+            <div class="text-4xl">😬</div>
+            <h3 class="mt-6 text-xl font-black text-white">Generic outreach gets ignored</h3>
+            <p class="mt-3 leading-7 text-zinc-400">Copy-paste cold emails get 0% reply rates. Founders need personalized messages that show you actually did your homework.</p>
+          </article>
+          <article class="premium-card border border-swarm-border border-l-orange-500 bg-swarm-panel p-7">
+            <div class="text-4xl">💸</div>
+            <h3 class="mt-6 text-xl font-black text-white">Can't afford a sales team yet</h3>
+            <p class="mt-3 leading-7 text-zinc-400">SDRs cost ₹6-8L per year. You're pre-revenue. You need to close deals yourself, fast.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="section-reveal border-t border-swarm-border py-24 sm:py-28">
+      <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+        <p class="text-sm font-black uppercase tracking-[0.24em] text-orange-500">How It Works</p>
+        <h2 class="mt-4 max-w-4xl text-4xl font-black tracking-normal text-white sm:text-6xl">4 AI Agents Working Together So You Don't Have To</h2>
+        <div class="relative mt-16 grid gap-8 md:grid-cols-4">
+          <div class="timeline-line absolute left-6 top-6 hidden h-0.5 w-[calc(100%-3rem)] md:block"></div>
+          <div class="timeline-line absolute bottom-0 left-6 top-6 w-0.5 md:hidden"></div>
+          <div class="relative z-10 pl-16 md:pl-0">
+            <div class="absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full bg-orange-500 text-lg font-black text-white shadow-orange-sm md:relative">1</div>
+            <h3 class="mt-0 text-lg font-black text-white md:mt-7">🔍 RESEARCHER AGENT</h3>
+            <p class="mt-3 leading-7 text-zinc-400">Scrapes the target company's website, blog, and job postings. Extracts what they do, how big they are, and what they care about.</p>
+          </div>
+          <div class="relative z-10 pl-16 md:pl-0">
+            <div class="absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full bg-orange-500 text-lg font-black text-white shadow-orange-sm md:relative">2</div>
+            <h3 class="mt-0 text-lg font-black text-white md:mt-7">🎯 FIT ANALYZER AGENT</h3>
+            <p class="mt-3 leading-7 text-zinc-400">Cross-references their pain points with your product. Scores the lead 1-10. Tells you if it's worth reaching out at all.</p>
+          </div>
+          <div class="relative z-10 pl-16 md:pl-0">
+            <div class="absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full bg-orange-500 text-lg font-black text-white shadow-orange-sm md:relative">3</div>
+            <h3 class="mt-0 text-lg font-black text-white md:mt-7">🪝 HOOK FINDER AGENT</h3>
+            <p class="mt-3 leading-7 text-zinc-400">Finds one specific recent thing to reference - a product launch, blog post, or hiring surge - to make your message feel human.</p>
+          </div>
+          <div class="relative z-10 pl-16 md:pl-0">
+            <div class="absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full bg-orange-500 text-lg font-black text-white shadow-orange-sm md:relative">4</div>
+            <h3 class="mt-0 text-lg font-black text-white md:mt-7">✍️ COPYWRITER AGENT</h3>
+            <p class="mt-3 leading-7 text-zinc-400">Writes your cold email, follow-up email, and LinkedIn DM. In your voice. From your product's perspective.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo" class="section-reveal border-t border-swarm-border py-24 sm:py-28">
+      <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+        <p class="text-sm font-black uppercase tracking-[0.24em] text-orange-500">Try It Now</p>
+        <h2 class="mt-4 max-w-4xl text-4xl font-black tracking-normal text-white sm:text-6xl">Paste a URL. Get Your Outreach Kit.</h2>
+        <div class="mt-12 grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+          <form id="swarmForm" class="space-y-5">
+            <div class="border border-swarm-border bg-swarm-panel p-6 shadow-2xl shadow-black/30">
+              <h3 class="text-xl font-black text-white">Your Product</h3>
+              <label class="mt-5 block text-sm font-bold text-zinc-300" for="product">What does your product do?</label>
+              <textarea id="product" rows="2" class="mt-2 w-full resize-none border border-swarm-border bg-black/45 px-4 py-3 text-white outline-none transition focus:border-orange-500" placeholder="We help e-commerce brands reduce cart abandonment using AI-powered exit intent popups"></textarea>
+              <label class="mt-5 block text-sm font-bold text-zinc-300" for="customer">Who is your target customer?</label>
+              <input id="customer" class="mt-2 w-full border border-swarm-border bg-black/45 px-4 py-3 text-white outline-none transition focus:border-orange-500" placeholder="D2C brands doing ₹1Cr+ monthly revenue" />
+            </div>
+            <div class="border border-swarm-border bg-swarm-panel p-6 shadow-2xl shadow-black/30">
+              <h3 class="text-xl font-black text-white">Target Company</h3>
+              <label class="mt-5 block text-sm font-bold text-zinc-300" for="targetUrl">Paste their website URL</label>
+              <input id="targetUrl" type="url" class="mt-2 w-full border border-swarm-border bg-black/45 px-4 py-3 text-white outline-none transition focus:border-orange-500" placeholder="https://targetcompany.com" />
+            </div>
+            <div class="border border-swarm-border bg-swarm-panel p-6 shadow-2xl shadow-black/30">
+              <h3 class="text-xl font-black text-white">Example case</h3>
+              <p class="mt-4 text-zinc-400">Use this example to test the app with a strong, founder-focused case.</p>
+              <ul class="mt-4 space-y-3 text-sm text-zinc-300">
+                <li><span class="font-semibold text-white">Your Product:</span> Instagram automation for dental clinics</li>
+                <li><span class="font-semibold text-white">Target customer:</span> dental clinics in Pune with 5-50 employees</li>
+                <li><span class="font-semibold text-white">Target URL:</span> <span class="text-orange-400">https://www.dentalclinicpune.com</span></li>
+              </ul>
+              <p class="mt-4 text-xs text-zinc-500">Tip: paste a real clinic website so the research and hook are more accurate.</p>
+            </div>
+            <button type="submit" class="glow-button w-full bg-orange-500 px-7 py-4 text-base font-black text-white shadow-orange-sm">🐝 Unleash SalesSwarm →</button>
+            <p class="text-center text-sm font-medium text-zinc-500">Takes ~30 seconds. Powered by OpenAI.</p>
+          </form>
+
+          <div id="outputPanel" class="min-h-[620px] border border-dashed border-orange-500/55 bg-swarm-panel p-6 shadow-2xl shadow-black/40 lg:p-8">
+            <div id="emptyState" class="flex h-full min-h-[540px] flex-col justify-center">
+              <div class="mx-auto max-w-md text-center">
+                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-orange-500/35 bg-orange-500/10 text-3xl">🐝</div>
+                <h3 class="mt-6 text-2xl font-black text-white">Your outreach kit will appear here</h3>
+                <div class="mt-8 space-y-4 blur-[2px]">
+                  <div class="h-16 bg-zinc-800/70"></div>
+                  <div class="h-24 bg-zinc-800/60"></div>
+                  <div class="h-36 bg-zinc-800/50"></div>
+                  <div class="h-20 bg-zinc-800/60"></div>
+                </div>
+              </div>
+            </div>
+            <div id="loadingState" class="hidden">
+              <h3 class="text-2xl font-black text-white">Swarm in motion</h3>
+              <p class="mt-3 text-sm text-zinc-400">Live agent progress activates each step one by one to make the AI flow feel real.</p>
+              <div id="agentProgress" class="mt-8 grid gap-3"></div>
+              <div id="loadingSteps" class="mt-8 space-y-4"></div>
+            </div>
+            <div id="resultState" class="hidden space-y-5"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="fit-score" class="section-reveal border-t border-swarm-border py-24 sm:py-28">
+      <div class="mx-auto grid max-w-7xl gap-12 px-5 sm:px-6 lg:grid-cols-2 lg:px-8">
+        <div>
+          <p class="text-sm font-black uppercase tracking-[0.24em] text-orange-500">The Feature No One Else Has</p>
+          <h2 class="mt-4 text-4xl font-black tracking-normal text-white sm:text-6xl">Stop Wasting Time on Bad Leads</h2>
+          <div class="mt-10 space-y-5">
+            <div class="premium-card border border-swarm-border bg-swarm-panel p-6"><p class="text-3xl font-black">🟢 9/10 — STRONG FIT</p><p class="mt-2 text-zinc-400">Reach out today</p></div>
+            <div class="premium-card border border-swarm-border bg-swarm-panel p-6"><p class="text-3xl font-black">🟡 5/10 — MEDIUM FIT</p><p class="mt-2 text-zinc-400">Nurture first</p></div>
+            <div class="premium-card border border-swarm-border bg-swarm-panel p-6"><p class="text-3xl font-black">🔴 2/10 — WEAK FIT</p><p class="mt-2 text-zinc-400">Skip this one</p></div>
+          </div>
+        </div>
+        <div class="flex items-center">
+          <div class="border border-swarm-border bg-swarm-panel p-8 text-xl font-medium leading-9 text-zinc-300 shadow-2xl shadow-black/35">
+            <p>Most AI outreach tools write you a message and call it done. SalesSwarm tells you whether to bother in the first place.</p>
+            <p class="mt-6">Our Fit Analyzer Agent cross-references your product with the target company's actual pain points, hiring signals, and recent activity - then scores the lead before wasting your time writing a pitch.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="use-cases" class="section-reveal border-t border-swarm-border py-24 sm:py-28">
+      <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+        <p class="text-sm font-black uppercase tracking-[0.24em] text-orange-500">Built For</p>
+        <h2 class="mt-4 max-w-4xl text-4xl font-black tracking-normal text-white sm:text-6xl">If You're At This Stage, SalesSwarm Is For You</h2>
+        <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <article class="premium-card border border-swarm-border bg-swarm-panel p-7"><div class="text-4xl">🚀</div><h3 class="mt-5 text-xl font-black">Just launched your MVP</h3><p class="mt-3 leading-7 text-zinc-400">Need your first 10 customers ASAP and don't know where to start</p></article>
+          <article class="premium-card border border-swarm-border bg-swarm-panel p-7"><div class="text-4xl">📧</div><h3 class="mt-5 text-xl font-black">Tired of cold email templates</h3><p class="mt-3 leading-7 text-zinc-400">Generic outreach gets ignored. You need messages that feel personal.</p></article>
+          <article class="premium-card border border-swarm-border bg-swarm-panel p-7"><div class="text-4xl">🤝</div><h3 class="mt-5 text-xl font-black">Doing sales yourself</h3><p class="mt-3 leading-7 text-zinc-400">No SDR, no sales team. Just you and your laptop.</p></article>
+          <article class="premium-card border border-swarm-border bg-swarm-panel p-7"><div class="text-4xl">🇮🇳</div><h3 class="mt-5 text-xl font-black">Building for Indian market</h3><p class="mt-3 leading-7 text-zinc-400">Need outreach that understands Indian business context.</p></article>
+          <article class="premium-card border border-swarm-border bg-swarm-panel p-7"><div class="text-4xl">⏱️</div><h3 class="mt-5 text-xl font-black">No time for research</h3><p class="mt-3 leading-7 text-zinc-400">You should be building, not Googling prospects for hours.</p></article>
+          <article class="premium-card border border-swarm-border bg-swarm-panel p-7"><div class="text-4xl">💰</div><h3 class="mt-5 text-xl font-black">Pre-revenue or early revenue</h3><p class="mt-3 leading-7 text-zinc-400">Every conversation counts. Can't afford to send weak pitches.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="stats" class="section-reveal border-t border-swarm-border py-20">
+      <div class="mx-auto grid max-w-7xl gap-5 px-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+        <div class="premium-card border border-swarm-border bg-swarm-panel p-7 text-center shadow-orange-sm"><p class="text-5xl font-black text-orange-500">30 sec</p><p class="mt-3 font-bold text-white">Average time to generate full outreach kit</p></div>
+        <div class="premium-card border border-swarm-border bg-swarm-panel p-7 text-center shadow-orange-sm"><p class="text-5xl font-black text-orange-500">4 Agents</p><p class="mt-3 font-bold text-white">Working in parallel on every lead</p></div>
+        <div class="premium-card border border-swarm-border bg-swarm-panel p-7 text-center shadow-orange-sm"><p class="text-5xl font-black text-orange-500">4 Formats</p><p class="mt-3 font-bold text-white">Email, WhatsApp, Instagram, LinkedIn DM generated simultaneously</p></div>
+        <div class="premium-card border border-swarm-border bg-swarm-panel p-7 text-center shadow-orange-sm"><p class="text-5xl font-black text-orange-500">10x</p><p class="mt-3 font-bold text-white">Faster than manual lead research</p></div>
+      </div>
+    </section>
+
+    <section id="final-cta" class="section-reveal border-t border-swarm-border bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.18),rgba(10,10,10,0.82)_46%,#0a0a0a_78%)] py-24 sm:py-32">
+      <div class="mx-auto max-w-5xl px-5 text-center sm:px-6 lg:px-8">
+        <h2 class="text-5xl font-black leading-tight tracking-normal text-white sm:text-7xl">Your Next Customer Is One URL Away</h2>
+        <p class="mx-auto mt-6 max-w-2xl text-lg font-medium leading-8 text-zinc-400">Stop spending hours on research. Let SalesSwarm do it while you build.</p>
+        <a href="#demo" class="glow-button mt-9 inline-flex items-center justify-center bg-orange-500 px-8 py-4 text-base font-black text-white shadow-orange-sm">Start Swarm for Free →</a>
+        <p class="mt-5 text-sm font-medium text-zinc-500">No credit card. No signup. Just paste a URL and go.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-swarm-border bg-black py-10">
+    <div class="mx-auto flex max-w-7xl flex-col gap-6 px-5 text-sm sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+      <div class="font-black text-white">SalesSwarm 🐝</div>
+      <div class="text-zinc-500">Built at OpenAI x Outskill AI Builders Hackathon 2026</div>
+      <div class="flex gap-5 font-bold text-zinc-300">
+        <a href="#how-it-works" class="hover:text-orange-400">How it works</a>
+        <a href="#demo" class="hover:text-orange-400">Try it</a>
+      </div>
+    </div>
+    <p class="mx-auto mt-8 max-w-7xl px-5 text-sm text-zinc-600 sm:px-6 lg:px-8">Powered by OpenAI Codex • Made for MVP-stage founders</p>
+  </footer>
+
+  <script>
+    const nav = document.getElementById("navbar");
+    const revealEls = document.querySelectorAll(".section-reveal");
+    const form = document.getElementById("swarmForm");
+    const loadExampleBtn = document.getElementById("loadExampleBtn");
+    const emptyState = document.getElementById("emptyState");
+    const loadingState = document.getElementById("loadingState");
+    const agentProgress = document.getElementById("agentProgress");
+    const loadingSteps = document.getElementById("loadingSteps");
+    const resultState = document.getElementById("resultState");
+    const API_BASE_URL = window.SALESSWARM_API_BASE_URL || "";
+
+    window.addEventListener("scroll", () => {
+      nav.classList.toggle("nav-scrolled", window.scrollY > 12);
+    }, { passive: true });
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add("visible");
+      });
+    }, { threshold: 0.13 });
+    revealEls.forEach((el) => observer.observe(el));
+
+    document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+      anchor.addEventListener("click", (event) => {
+        const target = document.querySelector(anchor.getAttribute("href"));
+        if (!target) return;
+        event.preventDefault();
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    function typeText(element, text, speed = 17) {
+      element.textContent = "";
+      element.classList.add("typing");
+      return new Promise((resolve) => {
+        let index = 0;
+        const timer = setInterval(() => {
+          element.textContent += text.charAt(index);
+          index += 1;
+          if (index >= text.length) {
+            clearInterval(timer);
+            element.classList.remove("typing");
+            resolve();
+          }
+        }, speed);
+      });
+    }
+
+    const loadingCopy = [
+      "🔍 Researching target company...",
+      "🎯 Analyzing product fit...",
+      "🪝 Finding personalization hook...",
+      "✍️ Writing your outreach kit..."
+    ];
+    const agentStages = [
+      { name: "Researcher", text: "Extracting company signals and website context." },
+      { name: "Fit Analyzer", text: "Scoring fit and finding the best outreach angle." },
+      { name: "Qualifier", text: "Checking if this lead is worth pursuing." },
+      { name: "Hook Finder", text: "Choosing a high-impact personalization hook." },
+      { name: "Copywriter", text: "Writing hyper-personalized messages for each channel." },
+    ];
+
+    function renderAgentProgress() {
+      agentProgress.innerHTML = agentStages.map((stage) => `
+        <div class="flex items-center justify-between gap-4 rounded-2xl border border-swarm-border bg-black/30 px-4 py-3">
+          <div>
+            <p class="text-sm font-semibold text-white">${escapeHtml(stage.name)}</p>
+            <p class="agent-subtext mt-1 text-xs text-zinc-500">${escapeHtml(stage.text)}</p>
+          </div>
+          <span class="agent-status inline-flex items-center rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1 text-xs uppercase tracking-[0.18em] text-zinc-300">Pending</span>
+        </div>
+      `).join("");
+    }
+
+    function setAgentStatus(index, status, label) {
+      const row = agentProgress.children[index];
+      if (!row) return;
+      const statusEl = row.querySelector(".agent-status");
+      const subtext = row.querySelector(".agent-subtext");
+      statusEl.textContent = status;
+      if (status === "Running") {
+        statusEl.classList.remove("border-zinc-700", "bg-zinc-950", "text-zinc-300");
+        statusEl.classList.add("border-orange-500", "bg-orange-500/10", "text-orange-300");
+      } else if (status === "Done") {
+        statusEl.classList.remove("border-orange-500", "bg-orange-500/10", "text-orange-300");
+        statusEl.classList.add("border-emerald-500", "bg-emerald-500/10", "text-emerald-300");
+      } else {
+        statusEl.classList.remove("border-orange-500", "bg-orange-500/10", "text-orange-300", "border-emerald-500", "bg-emerald-500/10", "text-emerald-300");
+        statusEl.classList.add("border-zinc-700", "bg-zinc-950", "text-zinc-300");
+      }
+      if (label) {
+        subtext.textContent = label;
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function linkifyText(text) {
+      return text.replace(
+        /(https?:\/\/[^\s<]+)/g,
+        '<a class="text-orange-400 underline hover:text-orange-300" href="$1" target="_blank" rel="noreferrer">$1</a>'
+      );
+    }
+
+    function normalizeUrl(url) {
+      const trimmed = url.trim();
+      if (!trimmed) return "";
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+      return `https://${trimmed}`;
+    }
+
+    let _betterTargetsData = [];
+
+    function startSwarmOnTarget(website, companyName) {
+      const urlInput = document.getElementById("targetUrl");
+      urlInput.value = website;
+      urlInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => {
+        const btn = document.querySelector("#swarmForm button[type=submit]");
+        if (btn) btn.click();
+      }, 500);
+      const toast = document.createElement("div");
+      toast.className = "fixed bottom-6 right-6 z-50 rounded-2xl border border-orange-500/50 bg-black/95 px-5 py-4 text-sm font-bold text-white shadow-2xl shadow-orange-500/20 animate-bounce";
+      toast.textContent = `🐝 Running SalesSwarm on ${companyName}...`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    function resultSectionsFromApi(data) {
+      const coldEmail = data.cold_email || {};
+      const whatsappMessage = data.whatsapp_message || "";
+      const followUpEmail = data.follow_up_email || {};
+      const linkedinDm = data.linkedin_dm || "";
+      const qualityGateReason = data.quality_gate_reason || "";
+      const betterTargets = Array.isArray(data.better_targets) ? data.better_targets : [];
+      _betterTargetsData = betterTargets;
+      const companyInfo = data.company_info || {};
+      const fitScore = data.fit_score || 0;
+      const qualifiedLabel = data.qualified ? "Qualified" : "Not qualified";
+      const errors = Array.isArray(data.errors) && data.errors.length
+        ? `\n\nWarnings:\n${data.errors.join("\n")}`
+        : "";
+      const nextActionMap = {
+        proceed_to_outreach: "Proceed to outreach",
+        proceed_with_caution: "Proceed with caution",
+        skip_lead: "Skip this lead",
+      };
+      const nextAction = nextActionMap[data.next_action] || (data.next_action ? data.next_action.replaceAll("_", " ") : "Review manually");
+      const fitReasoning = data.fit_reasoning || data.qualification_reason || "No fit reasoning returned yet.";
+      const bestAngle = data.best_angle ? `Best angle: ${data.best_angle}` : "No strong angle detected.";
+      const totalResearchTime = data.processing_time ? `${Math.round(data.processing_time)} seconds` : "N/A";
+      const pagesScraped = Math.max(
+        (companyInfo.recent_news || []).length +
+        (companyInfo.hiring_signals || []).length +
+        (companyInfo.content_themes || []).length,
+        1
+      );
+      const agentsActivated = agentStages.length;
+      const dataPointsAnalyzed = [
+        companyInfo.company_name,
+        companyInfo.industry,
+        companyInfo.what_they_do,
+        companyInfo.company_size,
+        companyInfo.target_customers,
+        companyInfo.pricing_model,
+        companyInfo.key_products?.length,
+        companyInfo.recent_news?.length,
+        companyInfo.tech_stack?.length,
+        companyInfo.hiring_signals?.length,
+        companyInfo.content_themes?.length,
+        companyInfo.apparent_challenges?.length,
+        (data.pain_points || []).length,
+        (data.potential_objections || []).length,
+      ].reduce((sum, value) => sum + (typeof value === "number" ? value : value ? 1 : 0), 0);
+
+      const sections = [
+        ...(!data.qualified ? [{
+          title: `⛔ NOT WORTH YOUR TIME RIGHT NOW`,
+          text: `Fit Score: ${fitScore}/10\n\n${qualityGateReason || data.qualification_reason || "Weak fit."}\n\nThis company doesn't match your ICP well enough to justify reaching out right now.`,
+          is_gate: true,
+          badge: "QUALITY GATE"
+        }] : []),
+        {
+          title: "🔎 RESEARCH SUMMARY:",
+          text: `Company: ${companyInfo.company_name || "Unknown"}\nWhat they do: ${companyInfo.what_they_do || "N/A"}\nRecent signals: ${(companyInfo.recent_news || []).slice(0, 2).join("; ") || "No clear signals found."}`
+        },
+        {
+          title: `🎯 FIT SCORE & QUALIFICATION: ${fitScore}/10`,
+          text: `Status: ${qualifiedLabel}\nNext action: ${nextAction}\n\n${fitReasoning}${errors}`
+        },
+        {
+          title: "💡 Best angle",
+          text: `${bestAngle}`,
+        },
+        {
+          title: "🪝 PERSONALIZATION HOOK:",
+          text: `${data.hook || "No hook generated because this lead was not qualified."}\n\nSource: ${data.hook_source || "N/A"}`
+        }
+      ];
+
+      const hasContact = data.contact_person_name || data.contact_company_linkedin || data.contact_linkedin || data.contact_email || data.contact_whatsapp;
+      if (data.qualified && hasContact) {
+        const contactLines = [];
+        if (data.contact_company_linkedin) contactLines.push(`🔗 Company LinkedIn:\n${data.contact_company_linkedin}`);
+        if (data.contact_person_name) contactLines.push(`👤 Contact: ${data.contact_person_name}${data.contact_role ? ` (${data.contact_role})` : ""}`);
+        if (data.contact_linkedin) contactLines.push(`🔗 LinkedIn Profile:\n${data.contact_linkedin}`);
+        if (data.contact_email) contactLines.push(`📧 Email:\n${data.contact_email}`);
+        if (data.contact_whatsapp) contactLines.push(`💬 WhatsApp:\n${data.contact_whatsapp}`);
+        sections.push({
+          title: "👤 CONTACT INFO",
+          text: contactLines.join("\n\n"),
+        });
+      }
+
+      sections.push({
+        title: "🐝 SWARM INTELLIGENCE SUMMARY",
+        text:
+          "─────────────────────────────\n" +
+          "🐝 SWARM INTELLIGENCE SUMMARY\n" +
+          "─────────────────────────────\n" +
+          `⏱️ Total research time: ${totalResearchTime}\n` +
+          `📄 Pages scraped: ${pagesScraped}\n` +
+          `🤖 Agents activated: ${agentsActivated}\n` +
+          `📊 Data points analyzed: ${dataPointsAnalyzed}\n` +
+          "─────────────────────────────",
+        is_summary: true,
+      });
+
+      if (coldEmail.subject || coldEmail.body) {
+        sections.push({
+          title: "📧 COLD EMAIL:",
+          text: `Subject: ${coldEmail.subject || "Quick question"}\n\n${coldEmail.body || ""}`,
+          url: `mailto:?subject=${encodeURIComponent(coldEmail.subject || "Quick question")}&body=${encodeURIComponent(coldEmail.body || "")}`,
+          actionText: "Open email"
+        });
+      }
+
+      if (whatsappMessage) {
+        sections.push({
+          title: "💬 WHATSAPP MESSAGE:",
+          text: whatsappMessage,
+          url: `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`,
+          actionText: "Open WhatsApp"
+        });
+      }
+
+      if (followUpEmail.subject || followUpEmail.body) {
+        const followUpText = `Subject: ${followUpEmail.subject || "Re: Follow-up"}\n\n${followUpEmail.body || "Just checking in."}`;
+        sections.push({
+          title: "✉️ FOLLOW-UP EMAIL:",
+          text: followUpText,
+          url: `mailto:?subject=${encodeURIComponent(followUpEmail.subject || "Re: Follow-up")}&body=${encodeURIComponent(followUpEmail.body || "Just checking in.")}`,
+          actionText: "Open follow-up"
+        });
+      }
+
+      if (linkedinDm) {
+        sections.push({
+          title: "💼 LINKEDIN DM:",
+          text: linkedinDm,
+          url: `https://www.linkedin.com/messaging/compose/?body=${encodeURIComponent(linkedinDm)}`,
+          actionText: "Open LinkedIn"
+        });
+      }
+
+      return sections;
+    }
+
+    function renderBetterTargetCards(betterTargets) {
+      if (!betterTargets.length) return "";
+      return `
+        <div class="mt-6">
+          <h3 class="text-lg font-black text-orange-400 mb-4">🎯 BETTER TARGETS FOR YOUR PRODUCT</h3>
+          <div class="grid gap-4">
+            ${betterTargets.map((t, i) => `
+              <article class="rounded-2xl border border-swarm-border bg-swarm-panel p-5 premium-card">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-lg font-black text-white">🏢 ${escapeHtml(t.company_name || "Unknown")}</p>
+                    <p class="mt-1 text-sm text-zinc-400">🌐 ${escapeHtml(t.website || "")}</p>
+                    <p class="mt-1 text-sm text-zinc-400">🏭 ${escapeHtml(t.industry || "")}</p>
+                    <p class="mt-3 text-sm leading-6 text-zinc-300">💡 ${escapeHtml(t.why_better_fit || "")}</p>
+                  </div>
+                  <button
+                    class="analyze-btn shrink-0 whitespace-nowrap rounded-xl border border-orange-500/60 bg-orange-500/10 px-4 py-3 text-sm font-black text-orange-400 transition hover:bg-orange-500/20 hover:shadow-orange-sm"
+                    data-website="${escapeHtml(t.website || "")}"
+                    data-name="${escapeHtml(t.company_name || "")}"
+                  >🐝 Analyze This Target →</button>
+                </div>
+              </article>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderResults(sections) {
+      resultState.innerHTML = sections.map((section, index) => `
+        <article class="rounded-3xl p-5 ${section.is_gate ? 'border border-red-500 bg-gradient-to-r from-red-700/90 via-red-800/80 to-black/90 shadow-2xl shadow-red-500/20' : 'border border-swarm-border bg-black/35'}">
+          ${section.is_summary ? '<div class="mb-3 rounded-2xl border border-orange-500/20 bg-orange-500/5 px-4 py-3 text-sm text-orange-200">Summary of the completed swarm run</div>' : ''}
+          <div class="flex items-start justify-between gap-4">
+            <h3 class="text-lg font-black text-orange-400">${escapeHtml(section.title)}</h3>
+            ${section.is_gate ? `<span class="rounded-full border border-red-500 bg-red-500/15 px-3 py-1 text-xs font-black uppercase tracking-[0.24em] text-red-200">${escapeHtml(section.badge || 'Blocker')}</span>` : ''}
+            <div class="flex items-center gap-2">
+              ${section.url ? `<a class="open-btn shrink-0 border border-white/15 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-wide text-zinc-300 transition hover:border-orange-500 hover:text-orange-400" href="${section.url}" target="_blank" rel="noreferrer">${escapeHtml(section.actionText || "Open")}</a>` : ""}
+              <button class="copy-btn shrink-0 border border-white/15 px-3 py-2 text-xs font-black uppercase tracking-wide text-zinc-300 transition hover:border-orange-500 hover:text-orange-400" data-index="${index}">Copy</button>
+            </div>
+          </div>
+            <p class="mt-4 whitespace-pre-line leading-7 text-zinc-300">${linkifyText(escapeHtml(section.text))}</p>
+            ${section.url ? `<p class="mt-4 text-xs uppercase tracking-[0.18em] text-zinc-500">Open link, then paste/send the message.</p>` : ""}
+          ${section.is_gate ? renderBetterTargetCards(_betterTargetsData) : ""}
+        </article>
+      `).join("");
+      resultState.querySelectorAll(".copy-btn").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const text = sections[Number(button.dataset.index)].text;
+          try {
+            await navigator.clipboard.writeText(text);
+          } catch (error) {
+            const fallback = document.createElement("textarea");
+            fallback.value = text;
+            fallback.setAttribute("readonly", "");
+            fallback.style.position = "fixed";
+            fallback.style.left = "-9999px";
+            document.body.appendChild(fallback);
+            fallback.select();
+            document.execCommand("copy");
+            fallback.remove();
+          }
+          const old = button.textContent;
+          button.textContent = "Copied";
+          setTimeout(() => { button.textContent = old; }, 1200);
+        });
+      });
+      resultState.querySelectorAll(".analyze-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const website = btn.dataset.website;
+          const name = btn.dataset.name;
+          if (website) startSwarmOnTarget(website, name);
+        });
+      });
+    }
+
+    function renderError(error) {
+      resultState.innerHTML = `
+        <article class="border border-orange-500/45 bg-orange-500/10 p-5">
+          <h3 class="text-lg font-black text-orange-400">Backend connection failed</h3>
+          <p class="mt-4 leading-7 text-zinc-300">SalesSwarm could not reach <span class="font-bold text-white">${escapeHtml(API_BASE_URL)}/swarm</span>.</p>
+          <p class="mt-4 leading-7 text-zinc-400">Start the backend with:</p>
+          <pre class="mt-3 overflow-x-auto border border-swarm-border bg-black/50 p-4 text-sm text-zinc-200">cd /Users/krrishyaduka/salesswarm
+source .venv/bin/activate
+uvicorn main:app --reload --port 8011</pre>
+          <p class="mt-4 text-sm text-zinc-500">${escapeHtml(error.message || error)}</p>
+        </article>
+      `;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const founderProduct = document.getElementById("product").value.trim();
+      const founderIcp = document.getElementById("customer").value.trim();
+      const targetUrl = normalizeUrl(document.getElementById("targetUrl").value);
+
+      if (!founderProduct || !founderIcp || !targetUrl) {
+        renderError(new Error("Fill in your product, target customer, and target company URL first."));
+        emptyState.classList.add("hidden");
+        loadingState.classList.add("hidden");
+        resultState.classList.remove("hidden");
+        return;
+      }
+
+      emptyState.classList.add("hidden");
+      resultState.classList.add("hidden");
+      loadingState.classList.remove("hidden");
+      renderAgentProgress();
+      loadingSteps.innerHTML = "";
+
+      const requestPromise = fetch(`${API_BASE_URL}/swarm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          founder_product: founderProduct,
+          founder_icp: founderIcp,
+          target_url: targetUrl
+        })
+      });
+
+      const progressPromise = (async () => {
+        for (let i = 0; i < agentStages.length; i += 1) {
+          setAgentStatus(i, "Running", loadingCopy[i] || "Working...");
+          await wait(900);
+          setAgentStatus(i, "Done", "Complete");
+        }
+      })();
+
+      for (const copy of loadingCopy) {
+        const row = document.createElement("div");
+        row.className = "flex items-center gap-4 border border-swarm-border bg-black/35 p-4";
+        row.innerHTML = `<span class="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-orange-500 border-t-transparent"></span><p class="font-bold text-zinc-200"></p>`;
+        loadingSteps.appendChild(row);
+        await typeText(row.querySelector("p"), copy);
+        await wait(460);
+      }
+
+      await progressPromise;
+      const response = await requestPromise;
+
+      await wait(350);
+      loadingState.classList.add("hidden");
+      try {
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`API returned ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        renderResults(resultSectionsFromApi(data));
+        resultState.classList.remove("hidden");
+      } catch (error) {
+        renderError(error);
+        resultState.classList.remove("hidden");
+      }
+    });
+
+    if (loadExampleBtn) {
+      loadExampleBtn.addEventListener("click", () => {
+        document.getElementById("product").value = "Instagram automation for dental clinics";
+        document.getElementById("customer").value = "Dental clinics in Pune with 5–50 employees";
+        document.getElementById("targetUrl").value = "https://pune-dental-clinic.example";
+        document.getElementById("targetUrl").focus();
+      });
+    }
+
+    const canvas = document.getElementById("swarmCanvas");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    let width = 0;
+    let height = 0;
+    let rafId;
+
+    function resizeCanvas() {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      width = canvas.offsetWidth;
+      height = canvas.offsetHeight;
+      canvas.width = width * ratio;
+      canvas.height = height * ratio;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      const count = Math.min(120, Math.max(54, Math.floor(width / 13)));
+      particles = Array.from({ length: count }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.28,
+        vy: (Math.random() - 0.5) * 0.28,
+        r: Math.random() * 1.8 + 0.8,
+        phase: Math.random() * Math.PI * 2
+      }));
+    }
+
+    function drawSwarm(time) {
+      ctx.clearRect(0, 0, width, height);
+      particles.forEach((p, i) => {
+        p.x += p.vx + Math.sin(time * 0.0007 + p.phase) * 0.13;
+        p.y += p.vy + Math.cos(time * 0.0006 + p.phase) * 0.10;
+        if (p.x < -20) p.x = width + 20;
+        if (p.x > width + 20) p.x = -20;
+        if (p.y < -20) p.y = height + 20;
+        if (p.y > height + 20) p.y = -20;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(249, 115, 22, ${0.35 + Math.sin(time * 0.002 + i) * 0.15})`;
+        ctx.fill();
+
+        for (let j = i + 1; j < particles.length; j += 1) {
+          const q = particles[j];
+          const dx = p.x - q.x;
+          const dy = p.y - q.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < 105) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+            ctx.strokeStyle = `rgba(249, 115, 22, ${0.08 * (1 - distance / 105)})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      });
+      rafId = requestAnimationFrame(drawSwarm);
+    }
+
+    window.addEventListener("resize", resizeCanvas, { passive: true });
+    resizeCanvas();
+    rafId = requestAnimationFrame(drawSwarm);
+  </script>
+</body>
+</html>
