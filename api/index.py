@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
 import sys
-from pathlib import Path
 
-# Add project root to path so imports like graph, models, agents work
-_root = Path(__file__).resolve().parent.parent
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
+_current = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.dirname(_current)
+if _root not in sys.path:
+    sys.path.insert(0, _root)
 
-from main import app  # noqa: E402, F401
+from main import app as _app
+
+app = _app
