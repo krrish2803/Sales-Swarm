@@ -22,17 +22,15 @@ async def researcher_agent(state: SwarmState) -> SwarmState:
         target_url = state["target_url"]
         base_url = target_url.rstrip("/")
 
-        homepage, about, pricing = await asyncio.gather(
+        homepage, about = await asyncio.gather(
             scrape_url(base_url),
             scrape_url(urljoin(f"{base_url}/", "about")),
-            scrape_url(urljoin(f"{base_url}/", "pricing")),
         )
 
         combined_scraped_content = "\n".join(
             [
                 _clip_content("Homepage", homepage),
                 _clip_content("About", about),
-                _clip_content("Pricing", pricing),
             ]
         )
 

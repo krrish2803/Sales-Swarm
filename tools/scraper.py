@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 JINA_READER_BASE = "https://r.jina.ai/"
-SCRAPE_TIMEOUT_SECONDS = 5.0
+SCRAPE_TIMEOUT_SECONDS = 4.0
 
 
 def _normalize_url(url: str) -> str:

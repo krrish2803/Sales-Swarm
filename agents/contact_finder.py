@@ -16,7 +16,7 @@ JINA_HEADERS = {
 JINA_SEARCH_BASE = "https://r.jina.ai/https://html.duckduckgo.com/html/?q="
 
 
-async def _jina_search(query: str, timeout: float = 12.0) -> str:
+async def _jina_search(query: str, timeout: float = 10.0) -> str:
     encoded = query.replace(" ", "+")
     url = f"{JINA_SEARCH_BASE}{encoded}"
     try:
@@ -29,7 +29,7 @@ async def _jina_search(query: str, timeout: float = 12.0) -> str:
         return ""
 
 
-async def _jina_read(url: str, timeout: float = 15.0) -> str:
+async def _jina_read(url: str, timeout: float = 10.0) -> str:
     """Read a direct URL via Jina AI Reader."""
     read_url = f"https://r.jina.ai/{url}"
     try:
